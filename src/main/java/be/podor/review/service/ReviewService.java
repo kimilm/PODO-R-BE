@@ -28,9 +28,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -97,12 +95,11 @@ public class ReviewService {
     ) {
         Page<Review> reviews = reviewSearchRepository.findReviewSearch(musicalId, searchDto, pageable);
 
-        List<ReviewListResponseDto> reviewListResponseDtos = reviews.stream()
-                .map(review -> {
-                    Boolean heartChecked = userDetails != null && reviewHeartRepository.existsByReviewAndCreatedBy(review, userDetails.getMemberId());
-                    return ReviewListResponseDto.of(review, heartChecked);
-                })
-                .collect(Collectors.toList());
+        Set<Long> myHearts = userDetails != null
+                ? reviewHeartRepository.findHeartedReviews(userDetails.getMemberId(), reviews.getContent())
+                : Collections.emptySet();
+
+        List<ReviewListResponseDto> reviewListResponseDtos = getReviewListResponseDtos(reviews, myHearts);
 
         return new PageImpl<>(reviewListResponseDtos, reviews.getPageable(), reviews.getTotalElements());
     }
@@ -190,5 +187,23 @@ public class ReviewService {
     @Transactional
     public void deleteReview(Long reviewId, UserDetailsImpl userDetails) {
         reviewRepository.deleteByReviewIdAndCreatedBy(reviewId, userDetails.getMemberId());
+    }
+
+    private List<ReviewListResponseDto> getReviewListResponseDtos(
+            Page<Review> reviews,
+            Set<Long> myHearts
+    ) {
+        if (myHearts.isEmpty()) {
+            return reviews.stream()
+                    .map(review -> ReviewListResponseDto.of(review, false))
+                    .collect(Collectors.toList());
+        }
+
+        return reviews.stream()
+                .map(review -> {
+                    Boolean heartChecked = myHearts.contains(review.getReviewId());
+                    return ReviewListResponseDto.of(review, heartChecked);
+                })
+                .collect(Collectors.toList());
     }
 }
