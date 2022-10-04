@@ -110,4 +110,11 @@ public class ReviewController {
 
         return ResponseEntity.ok().build();
     }
+
+    @GetMapping("/api/musicals/insert")
+    public ResponseEntity<?> insertReview() {
+        reviewService.insertReview();
+
+        return ResponseEntity.ok().build();
+    }
 }
